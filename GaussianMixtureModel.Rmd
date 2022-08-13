@@ -1,0 +1,110 @@
+---
+title: "Gaussaian Mixture Model"
+author: "Josephine Choi"
+date: "null"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r setup1}
+
+path<-file.choose()
+data<-read.csv(path)
+#data<-Diabetes_Study_File_May_1_2019_clean_1_
+library(tableone)
+library(dplyr)
+head(data)
+summary(data)
+names(data)
+
+```
+
+```{r}
+
+#Table 1 
+myvars=c('Age_at_Exam','Sex','sBP','BMI','LDL','HDL','A1c','TG','Total_Cholesterol','Diabetes','HTN','OA','CoPD','FBS')
+tab <- CreateTableOne(vars = myvars, data = data)
+tab
+
+tab1 <- CreateTableOne(vars = myvars, data = data, strata='Diabetes')
+tab1
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+#data$comorbidities<-data$HTN+data$OA+data$COPD+data$Depression
+
+mod.1<-data%>%glm(formula=factor(Diabetes)~FBS+sBP+Total_Cholesterol+BMI+LDL+HDL+Age_at_Exam,family=binomial)
+
+#mod.1<-data%>%glm(formula=factor(Diabetes)~FBS+sBP+Total_Cholesterol+BMI+LDL+HDL+Age_at_Exam+factor(Sex),family=binomial)
+summary(mod.1)
+```
+```{r}
+#data_num<-data%>%select(Age_at_Exam,sBP,BMI,LDL,HDL,A1c,TG,FBS,Total_Cholesterol,Diabetes,comorbidities,OA)
+data_num<-data%>%select(Age_at_Exam,sBP,BMI,LDL,HDL,A1c,TG,FBS,Total_Cholesterol,Diabetes)
+cor(data_num)
+```
+
+## McFadden's R Squared 
+```{r McFadden}
+
+#McFadden’s R squared in R
+nullmod <- glm(data$Diabetes~1, family="binomial")
+1-logLik(mod.1)/logLik(nullmod)
+
+```
+
+## VIF 
+```{r VIF}
+library(car)
+vif(mod.1)
+```
+
+
+```{r pressure, echo=FALSE}
+library("Hmisc")
+mydata.rcorr = rcorr(as.matrix(data_num))
+mydata.rcorr
+
+#install.packages("corrplot")
+#library(corrplot)
+	
+#corrplot(as.matrix(corrplot()))
+
+#Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+```
+```{r}
+
+# Load the package
+library(mclust)
+# Select 4 continuous variables and look for three distinct groups.
+mcl.model <- Mclust(data[, 1:4], 3)
+# Plot our results.
+plot(mcl.model, what = "classification", main = "Mclust Classification")
+```
+```{r}
+
+BIC <- mclustBIC(data[, 1:4])
+plot(BIC)
+```
+```{r}
+
+summary(BIC)
+```

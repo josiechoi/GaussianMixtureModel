@@ -1,0 +1,142 @@
+---
+title: "Gaussaian Mixture Model - test on PIMA"
+author: "Josephine Choi"
+date: "null"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r setup1}
+
+path<-file.choose()
+data<-read.csv(path)
+#data<-Diabetes_Study_File_May_1_2019_clean_1_
+library(tableone)
+library(dplyr)
+head(data)
+summary(data)
+names(data)
+
+```
+
+```{r}
+
+#Table 1 
+myvars=c('Age_at_Exam','Sex','sBP','BMI','LDL','HDL','A1c','TG','Total_Cholesterol','Diabetes','HTN','OA','CoPD','FBS')
+
+myvars=c('Age','BloodPressure','BMI','Glucose','SkinThickness','Insulin','DiabetesPedigreeFunction')
+
+tab <- CreateTableOne(vars = myvars, data = data)
+tab
+
+tab1 <- CreateTableOne(vars = myvars, data = data, strata='Outcome')
+tab1
+```
+
+## Logistic Regression (skip for now - it's written for the 800K
+```{r}
+#data$comorbidities<-data$HTN+data$OA+data$COPD+data$Depression
+
+#mod.1<-data%>%glm(formula=factor(Diabetes)~FBS+sBP+Total_Cholesterol+BMI+LDL+HDL+Age_at_Exam,family=binomial)
+
+#mod.1<-data%>%glm(formula=factor(Diabetes)~FBS+sBP+Total_Cholesterol+BMI+LDL+HDL+Age_at_Exam+factor(Sex),family=binomial)
+#summary(mod.1)
+```
+```{r}
+#data_num<-data%>%select(Age_at_Exam,sBP,BMI,LDL,HDL,A1c,TG,FBS,Total_Cholesterol,Diabetes,comorbidities,OA)
+#data_num<-data%>%select(Age_at_Exam,sBP,BMI,LDL,HDL,A1c,TG,FBS,Total_Cholesterol,Diabetes)
+#cor(data_num)
+```
+
+## McFadden's R Squared (skip - also for 800K)
+```{r McFadden}
+
+#McFadden’s R squared in R
+#nullmod <- glm(data$Diabetes~1, family="binomial")
+#1-logLik(mod.1)/logLik(nullmod)
+
+```
+
+## VIF - skip - also for 800K
+```{r VIF}
+#library(car)
+#vif(mod.1)
+```
+
+
+```{r pressure, echo=FALSE}
+#library("Hmisc")
+#mydata.rcorr = rcorr(as.matrix(data_num))
+#mydata.rcorr
+
+#install.packages("corrplot")
+#library(corrplot)
+	
+#corrplot(as.matrix(corrplot()))
+
+#Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+```
+
+# Gaussian Mixture Model  - loading mclust 
+
+
+### Thoughts 
+- Using BIC to decide the number of  components 
+
+* will start with only a couple of indpendent variables 
+* ideally will see only a couple clusters - one for diabetic pt and one for non-diabetic patient 
+
+### Benefit 
+- of Gaussian Mixture Model - more flexible than K-mean , with two parameters to describe the cluster shape (mean and standard deviation) - K-mean makes naive use of the mean value as the cluster center
+- fastest algorithm among the learning mixture models 
+
+
+### Disadvantage 
+- need sufficient pts per mixture, else estimating the covariance becomes difficult
+- need to select the # of gaussians (components)
+
+### Steps 
+- select # of clusters (accomplished by BIC)
+- compute the probability
+-  based on probability, a new set of Guassian distributed will be computed 
+
+```{r}
+
+# Load the package
+library(mclust)
+
+X<-data
+
+BIC<-mclustBIC(X)
+BIC
+
+# Select 4 continuous variables and look for three distinct groups.
+mcl.model <- Mclust(data[, 2:3], 2)
+# Plot our results.
+
+
+plot(mcl.model, what = "classification", main = "Mclust Classification")
+```
+```{r}
+
+BIC <- mclustBIC(data[, 1:4])
+plot(BIC)
+```
+```{r}
+
+summary(BIC)
+```
