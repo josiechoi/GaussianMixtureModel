@@ -20,14 +20,26 @@ When you click the **Knit** button a document will be generated that includes bo
 
 ```{r setup1}
 
+library(dplyr)
+library(tableone)
 path<-file.choose()
 data<-read.csv(path)
-#data<-Diabetes_Study_File_May_1_2019_clean_1_
-library(tableone)
-library(dplyr)
+#data - Use  diabetes_may1_2019_ijaz_raw_clean.csv
+```
+
+```{r}
+
+
+
+
+data<-data%>%select(Age_at_Exam,Sex,sBP,BMI,LDL,HDL,A1c,TG,FBS,Total_Cholesterol,Diabetes,Depression,HTN,OA,COPD)
 head(data)
 summary(data)
 names(data)
+
+#Cleaning up the data 
+data<- data %>%mutate(Sex = replace(Sex, Sex == "MALE", "Male"))
+data<- data %>%mutate(Sex = replace(Sex, Sex == "FEMALE", "Female"))
 
 ```
 
@@ -47,33 +59,51 @@ tab1
 You can also embed plots, for example:
 
 ```{r}
-#data$comorbidities<-data$HTN+data$OA+data$COPD+data$Depression
+data$comorbidities<-data$HTN+data$OA+data$COPD+data$Depression
 
-mod.1<-data%>%glm(formula=factor(Diabetes)~FBS+sBP+Total_Cholesterol+BMI+LDL+HDL+Age_at_Exam,family=binomial)
+
+#Logistic Regression (dependent - Diabetes)
+mod.1<-data%>%glm(formula=factor(Diabetes)~FBS+sBP+Total_Cholesterol+TG+BMI+LDL+HDL+Age_at_Exam,family=binomial)
+
+#Ijaz's model
+
+
+#addint the quadratic elements 
+#assumgin FBS = Fasting Plasma Glucose (FPG) - dependent variable 
+data$BMI2<-data$BMI^2
+data$A1c2<-data$A1c^2
+
+mod.2<-data%>%lm(formula=FBS~Age_at_Exam+sBP+BMI+LDL+HDL+A1c+TG+factor(Diabetes)+OA+factor(Sex)+BMI2+BMI*OA+A1c2)
 
 #mod.1<-data%>%glm(formula=factor(Diabetes)~FBS+sBP+Total_Cholesterol+BMI+LDL+HDL+Age_at_Exam+factor(Sex),family=binomial)
 summary(mod.1)
+
+summary(mod.2)
 ```
 ```{r}
-#data_num<-data%>%select(Age_at_Exam,sBP,BMI,LDL,HDL,A1c,TG,FBS,Total_Cholesterol,Diabetes,comorbidities,OA)
-data_num<-data%>%select(Age_at_Exam,sBP,BMI,LDL,HDL,A1c,TG,FBS,Total_Cholesterol,Diabetes)
-cor(data_num)
+data_num<-data%>%select(Age_at_Exam,sBP,BMI,LDL,HDL,A1c,TG,FBS,Total_Cholesterol,Diabetes,comorbidities,OA)
+#data_num<-data%>%select(Age_at_Exam,sBP,BMI,LDL,HDL,A1c,TG,FBS,Total_Cholesterol)
+#cor(data_num)
 ```
 
 ## McFadden's R Squared 
 ```{r McFadden}
 
 #McFadden’s R squared in R
-nullmod <- glm(data$Diabetes~1, family="binomial")
-1-logLik(mod.1)/logLik(nullmod)
+# <- glm(data$Diabetes~1, family="binomial")
+#logLik(mod.1)/logLik(nullmod)
 
 ```
-
+- McFadden's R Squared - 0.2 to 0.4 indicates a good fit (Haider, p.362)
+- Therefore, 0.24 indicates that this logit model is adequate
 ## VIF 
 ```{r VIF}
 library(car)
 vif(mod.1)
 ```
+
+- Using VIF here to check for multicollinearity 
+- Total_Cholesterol and LDL has scores over 5 (8.71 and 8.17 respectively). This is confirmed with the correlation matrix (see below).  Therefore, Total_Cholesterol should be dropped
 
 
 ```{r pressure, echo=FALSE}
@@ -90,18 +120,61 @@ mydata.rcorr
 
 
 ```
+
+# Gaussian Mixture Model  - loading mclust 
+
+
+### Thoughts 
+- Using BIC to decide the number of  components 
+
+* will start with only a couple of indpendent variables 
+* ideally will see only a couple clusters - one for diabetic pt and one for non-diabetic patient 
+
+### Benefit 
+- of Gaussian Mixture Model - more flexible than K-mean , with two parameters to describe the cluster shape (mean and standard deviation) - K-mean makes naive use of the mean value as the cluster center
+- fastest algorithm among the learning mixture models 
+
+
+### Disadvantage 
+- need sufficient pts per mixture, else estimating the covariance becomes difficult
+- need to select the # of gaussians (components)
+
+### Steps 
+- select # of clusters (accomplished by BIC)
+- compute the probability
+-  based on probability, a new set of Guassian distributed will be computed 
 ```{r}
+
 
 # Load the package
 library(mclust)
-# Select 4 continuous variables and look for three distinct groups.
-mcl.model <- Mclust(data[, 1:4], 3)
+
+#testing on (3-sBP, 4-BMI,7-A1c,8-TG,9-FBS)
+
+X<-data[,c(3,4,7,8,9)]
+
+BIC<-mclustBIC(X)
+BIC
+
+```
+
+```{r}
+
+# Select 4 continuous variables and look for two distinct groups.
+mcl.model <- Mclust(data[,c(3,7,8)],2)
 # Plot our results.
 plot(mcl.model, what = "classification", main = "Mclust Classification")
+
+plot(mcl.model,what="uncertainty",main="Mclust Uncertainty")
+
+plot(mcl.model,what="density",main="Mclust density")
+table(data$Diabetes,mcl.model$classification)
+
+
 ```
 ```{r}
 
-BIC <- mclustBIC(data[, 1:4])
+BIC <- mclustBIC(data[,c(3,4,6,7,8)])
 plot(BIC)
 ```
 ```{r}
