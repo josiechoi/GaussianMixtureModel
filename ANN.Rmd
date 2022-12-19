@@ -1,0 +1,97 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+---
+title: "ANN"
+author: "Josephine Choi"
+date: "2022-12-18"
+output: word_doc
+```
+
+## R Markdown
+
+
+```{r}
+
+path<-choose.files()
+df<-read.csv(path)
+
+
+
+```
+
+
+```{r}
+df1<-df[,1:10]
+FBS<-df[,16]
+
+df<-cbind(df1,FBS)
+
+summary(df)
+```
+```{r}
+
+
+#ANN requires scaling 
+x<-scale(model.matrix(FBS~. -1,data=df))
+y<-df$FBS
+```
+```{r}
+library(keras)
+library(reticulate)
+
+```
+
+```{r}
+
+#selection of the test dataset (will be about 33% of the whole dataset - using sampling)
+n<-nrow(df)
+ntest<-trunc(n/3)
+testid<-sample(1:n,ntest)
+
+lfit<-lm(FBS~.,data=df[-testid,])
+lpred<-predict(lfit,df[testid,])
+with(df[testid,],mean(abs(lpred-FBS)))
+
+```
+```{r}
+library(glmnet)
+cvfit<-cv.glmnet(x[-testid,],y[-testid],type.measure="mae")
+cpred<-predict(cvfit,x[testid,],s="lambda.min")
+mean(abs(y[testid]-cpred))
+```
+```{r}
+#single dense layer neural networks 
+
+modnm<-keras_model_sequential() %>%
+  layer_dense(unit=50,activation="relu",input_shape=ncol(x)) %>%
+  layer_dropout(rate=0.4)
+  layer_dense(units=1)
+  
+  
+  
+  
+```
+
+```{r}
+
+modnm %>% compile(loss="mse",optimizer=optimizer_rmsprop(),metrics=list("mean_absolute_error"))
+```
+
+```{r}
+history<-modnm %>%fit(x[-testid,],y[-testid],epochs=250,batch_size=32,validation_data=list(x[testid,],y[testid]))
+```
+```{r}
+plot(history)
+
+```
+
+
+```{r}
+
+npred<-predict(modnm,x[testid,])
+mean(abs(y[testid]-npred))
+```
+
